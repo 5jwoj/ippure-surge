@@ -32,9 +32,25 @@ function isChinese() {
 
 (async () => {
     const args = getArgs();
-    const policy = args.policy || "";
 
-    // Attempt to get node name if policy is a group
+    // 1. Priority: argument policy=...
+    // 2. Fallback: try common group names
+    let policy = args.policy || "";
+
+    if (!policy && typeof $surge !== "undefined") {
+        const groupDetails = $surge.selectGroupDetails();
+        if (groupDetails && groupDetails.decisions) {
+            const commonGroups = ["PROXY", "Proxy", "节点选择", "全球加速", "手动切换"];
+            for (const g of commonGroups) {
+                if (groupDetails.decisions[g]) {
+                    policy = g;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Attempt to get node name
     let nodeName = "";
     if (policy && typeof $surge !== "undefined") {
         const groupDetails = $surge.selectGroupDetails();
