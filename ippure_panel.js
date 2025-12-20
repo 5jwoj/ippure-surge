@@ -45,38 +45,63 @@ function formatInfo(json) {
     return `${riskIcon} ${location} | ${score} | ${typeText}`;
 }
 
+/**
+ * Parse arguments like "policy=Proxy&icon=shield"
+ */
+function getArgs() {
+    return (typeof $argument !== "undefined" && $argument)
+        ? Object.fromEntries($argument.split("&").map(item => item.split("=")))
+        : {};
+}
+
 (async () => {
+    const args = getArgs();
     let proxyGroups = [];
+
     if (typeof $surge !== "undefined") {
         const details = $surge.selectGroupDetails();
-        // Detect all user-defined select groups, excluding system groups
         proxyGroups = Object.keys(details.decisions || {}).filter(name => {
             const lowName = name.toLowerCase();
             return !["direct", "reject", "dummy", "static", "ssid"].includes(lowName);
         });
     }
 
-    // Cycling logic
-    let currentIndex = parseInt($persistentStore.read("ippure_index") || "0");
-    if (currentIndex >= proxyGroups.length) currentIndex = 0;
+    // Selection Logic:
+    // 1. If manual argument 'policy' is provided, use it and DISABLE cycling.
+    // 2. Otherwise, use cycling index.
+    let policy = args.policy || "";
+    let isLocked = !!args.policy;
+    let currentIndex = 0;
 
-    const currentProxyGroup = proxyGroups[currentIndex] || "";
-    // Save next index for the next tap
-    const nextIndex = (proxyGroups.length > 0) ? (currentIndex + 1) % proxyGroups.length : 0;
-    $persistentStore.write(nextIndex.toString(), "ippure_index");
+    if (!isLocked && proxyGroups.length > 0) {
+        currentIndex = parseInt($persistentStore.read("ippure_index") || "0");
+        if (currentIndex >= proxyGroups.length) currentIndex = 0;
+        policy = proxyGroups[currentIndex];
+
+        // Save next index for the next tap
+        const nextIndex = (proxyGroups.length > 0) ? (currentIndex + 1) % proxyGroups.length : 0;
+        $persistentStore.write(nextIndex.toString(), "ippure_index");
+    }
 
     // Parallel requests
     const [directData, proxyData] = await Promise.all([
         fetchIP("DIRECT"),
-        currentProxyGroup ? fetchIP(currentProxyGroup) : Promise.resolve(null)
+        policy ? fetchIP(policy) : Promise.resolve(null)
     ]);
 
     const directLine = `🏠 ${formatInfo(directData)}`;
     let proxyLine = "";
+    let tip = "";
 
-    if (currentProxyGroup) {
-        const nodeName = $surge.selectGroupDetails().decisions[currentProxyGroup] || currentProxyGroup;
+    if (policy) {
+        const nodeName = (typeof $surge !== "undefined")
+            ? ($surge.selectGroupDetails().decisions[policy] || policy)
+            : policy;
         proxyLine = `\n🚀 ${formatInfo(proxyData)} (${nodeName})`;
+
+        if (!isLocked && proxyGroups.length > 1) {
+            tip = isChinese() ? "\n💡 长按编辑参数以固定组: policy=" + policy : "\n💡 Long-press to lock: policy=" + policy;
+        }
     } else {
         proxyLine = isChinese() ? "\n🚀 未检出代理组" : "\n🚀 No Proxy Group";
     }
