@@ -5,9 +5,21 @@
 
 const URL = "https://my.ippure.com/v1/info";
 
-async function request() {
+/**
+ * Parse arguments like "policy=Proxy&icon=shield"
+ */
+function getArgs() {
+    return (typeof $argument !== "undefined" && $argument)
+        ? Object.fromEntries($argument.split("&").map(item => item.split("=")))
+        : {};
+}
+
+async function request(policy) {
     return new Promise((resolve) => {
-        $httpClient.get(URL, (error, response, data) => {
+        const options = { url: URL };
+        if (policy) options.policy = policy;
+
+        $httpClient.get(options, (error, response, data) => {
             resolve({ error, data });
         });
     });
@@ -19,9 +31,22 @@ function isChinese() {
 }
 
 (async () => {
-    const { error, data } = await request();
+    const args = getArgs();
+    const policy = args.policy || "";
 
-    const title = isChinese() ? "IPPure IP 详情" : "IPPure IP Details";
+    // Attempt to get node name if policy is a group
+    let nodeName = "";
+    if (policy && typeof $surge !== "undefined") {
+        const groupDetails = $surge.selectGroupDetails();
+        if (groupDetails && groupDetails.decisions && groupDetails.decisions[policy]) {
+            nodeName = groupDetails.decisions[policy];
+        }
+    }
+
+    const { error, data } = await request(policy);
+
+    const baseTitle = isChinese() ? "IPPure IP 详情" : "IPPure IP Details";
+    const title = nodeName ? `${baseTitle} (${nodeName})` : baseTitle;
 
     if (error || !data) {
         $done({
@@ -65,10 +90,10 @@ function isChinese() {
         // Formatting content
         // Line 1: Location - ISP
         // Line 2: Score (Level) | Type
-        const content = `${location} - ${org}\n` + 
-                        (isChinese() 
-                            ? `评分: ${score} (${riskText}) | ${resText} · ${brdText}`
-                            : `Score: ${score} (${riskText}) | ${resText} · ${brdText}`);
+        const content = `${location} - ${org}\n` +
+            (isChinese()
+                ? `评分: ${score} (${riskText}) | ${resText} · ${brdText}`
+                : `Score: ${score} (${riskText}) | ${resText} · ${brdText}`);
 
         $done({
             title,

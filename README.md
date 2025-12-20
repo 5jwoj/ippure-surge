@@ -20,6 +20,12 @@
 2. **面板展示**：启用模块后，Surge 首页（Dashboard）将出现 **IPPure IP 详情** 面板。
 3. **点击刷新**：点击面板可手动触发脚本刷新当前 IP 信息。
 
+### 进阶用法：检测代理节点
+如果你想通过特定策略组（例如 `Proxy`）来检测 IP 情况，可以在模块配置中添加参数：
+1. 编辑模块，找到 `[Panel]` 下的 `IPPure-IP-Info` 行。
+2. 添加 `argument=policy=你的策略组名称`。
+   *示例：* `IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=Proxy`
+
 ---
 
 ## English Instructions
