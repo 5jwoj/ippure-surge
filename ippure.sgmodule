@@ -4,7 +4,7 @@
 #!author=Stash & Antigravity
 
 [Panel]
-IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=Proxy
+IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600
 
 [Script]
 IPPure-IP-Info = type=generic, script-path=https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_panel.js, timeout=10
