@@ -95,7 +95,7 @@ function formatInfo(json) {
 
     $done({
         title: isChinese() ? "IPPure 双 IP 检测" : "IPPure Dual IP Check",
-        content: directLine + proxyLine,
+        content: directLine + proxyLine + tip,
         icon: riskIcon,
         "icon-color": riskColor
     });
