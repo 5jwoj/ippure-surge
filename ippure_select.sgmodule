@@ -1,0 +1,10 @@
+#!name=IPPure IP Info (节点选择)
+#!desc=通过 IPPure.com 展示 节点选择 策略组的 IP 详情。
+#!icon=https://ippure.com/logo.png
+#!author=Stash & Antigravity
+
+[Panel]
+IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=节点选择
+
+[Script]
+IPPure-IP-Info = type=generic, script-path=https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_panel.js, timeout=10

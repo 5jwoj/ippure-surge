@@ -21,10 +21,14 @@
 3. **点击刷新**：点击面板可手动触发脚本刷新当前 IP 信息。
 
 ### 进阶用法：检测代理节点
-如果你想通过特定策略组（例如 `Proxy`）来检测 IP 情况，可以在模块配置中添加参数：
-1. 编辑模块，找到 `[Panel]` 下的 `IPPure-IP-Info` 行。
-2. 添加 `argument=policy=你的策略组名称`。
-   *示例：* `IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=Proxy`
+如果你不想手动编辑配置文件，可以使用以下预设了常用策略组名称的 URL 进行安装：
+
+- **自动识别 (推荐)**: 自动尝试 `PROXY`, `Proxy`, `节点选择`, `全球加速`。
+  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure.sgmodule`
+- **指定 Proxy 组**:
+  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_proxy.sgmodule`
+- **指定 节点选择 组**:
+  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_select.sgmodule`
 
 ---
 
@@ -43,3 +47,9 @@ Display detailed IP information, fraud risk score, and line classification (Resi
    `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure.sgmodule`
 2. **Dashboard**: After enabling, the **IPPure IP Details** panel will appear on your Surge dashboard.
 3. **Manual Refresh**: Tap the panel to manually refresh the IP data.
+
+### Advanced: Check Proxy IP
+To check the IP of a specific policy group (e.g., `Proxy`), add an argument to the configuration:
+1. Edit the module and find the `IPPure-IP-Info` line under `[Panel]`.
+2. Add `argument=policy=YourGroupName`.
+   *Example:* `IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=Proxy`
