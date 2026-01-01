@@ -1,12 +1,13 @@
 /**
- * IPPure Dual Panel for Surge
- * Version: 2.5
+ * IPPure Single Node Monitor for Surge
+ * Version: 3.0
  * Features:
- * 1. Shows both Direct (Local) and Proxy IP info.
- * 2. Tap to cycle through detected Proxy Groups.
+ * - Monitor the best node (lowest latency) from "自动测速" policy group
+ * - Display: Node Name | Purity% | IP Type | Location | Latency
  */
 
 const API_URL = "https://my.ippure.com/v1/info";
+const POLICY_GROUP = "自动测速"; // Fixed policy group name
 
 function isChinese() {
     const lang = ($environment.language || "").toLowerCase();
@@ -15,8 +16,7 @@ function isChinese() {
 
 async function fetchIP(policy) {
     return new Promise((resolve) => {
-        // Use shorter timeout for DIRECT to avoid blocking
-        const timeout = (policy === "DIRECT") ? 2000 : 4000;
+        const timeout = 4000;
         const options = { url: API_URL, timeout: timeout };
         if (policy) options.policy = policy;
         $httpClient.get(options, (error, response, data) => {
@@ -29,121 +29,69 @@ async function fetchIP(policy) {
     });
 }
 
-function formatInfo(json) {
+function formatInfo(json, nodeName, latency) {
     if (!json) return isChinese() ? "获取失败" : "Failed";
+
     const score = json.fraudScore || 0;
+    const purity = 100 - score; // Convert fraud score to purity percentage
     const isRes = !!json.isResidential;
     const isBrd = !!json.isBroadcast;
-
-    let riskIcon = "🟢";
-    if (score >= 40 && score < 70) riskIcon = "🟡";
-    else if (score >= 70) riskIcon = "🔴";
 
     const typeText = isChinese()
         ? `${isRes ? "住宅" : "机房"}·${isBrd ? "广播" : "原生"}`
         : `${isRes ? "Res" : "DC"}·${isBrd ? "Brd" : "Nat"}`;
 
     const location = json.city || json.region || json.country || "?";
+    const latencyText = latency !== null ? `${latency}ms` : "?";
 
-    return `${riskIcon} ${location} | ${score} | ${typeText}`;
-}
-
-/**
- * Parse arguments like "policy=Proxy&icon=shield"
- */
-function getArgs() {
-    return (typeof $argument !== "undefined" && $argument)
-        ? Object.fromEntries($argument.split("&").map(item => item.split("=")))
-        : {};
+    // Format: NodeName | Purity% | IP Type | Location | Latency
+    if (isChinese()) {
+        return `${nodeName}\n纯净度: ${purity}% | ${typeText}\n${location} | 延迟: ${latencyText}`;
+    } else {
+        return `${nodeName}\nPurity: ${purity}% | ${typeText}\n${location} | ${latencyText}`;
+    }
 }
 
 (async () => {
-    const args = getArgs();
-    let proxyGroups = [];
+    let nodeName = POLICY_GROUP;
+    let latency = null;
 
+    // Get the selected node from the policy group
     if (typeof $surge !== "undefined") {
-        const details = $surge.selectGroupDetails();
-        proxyGroups = Object.keys(details.decisions || {}).filter(name => {
-            const lowName = name.toLowerCase();
-            // 排除系统保留组和选择组
-            if (["direct", "reject", "dummy", "static", "ssid"].includes(lowName)) {
-                return false;
-            }
-            // 检查是否有实际的节点选择
-            const selectedNode = details.decisions[name];
-            return selectedNode && selectedNode !== name;
-        });
-    }
-
-    // Selection Logic:
-    // 1. If manual argument 'policy' is provided, use it and DISABLE cycling.
-    // 2. Otherwise, use cycling index.
-    let policy = args.policy || "";
-    let isLocked = !!args.policy;
-    let currentIndex = 0;
-
-    if (!isLocked && proxyGroups.length > 0) {
-        currentIndex = parseInt($persistentStore.read("ippure_index") || "0");
-        if (currentIndex >= proxyGroups.length) currentIndex = 0;
-        policy = proxyGroups[currentIndex];
-
-        // Save next index for the next tap
-        const nextIndex = (proxyGroups.length > 0) ? (currentIndex + 1) % proxyGroups.length : 0;
-        $persistentStore.write(nextIndex.toString(), "ippure_index");
-    }
-
-    // Serial requests: Proxy first (fast), then Direct (may be slow)
-    let proxyData = null;
-    let directData = null;
-    let actualPolicy = policy;
-    let nodeName = policy;
-
-    if (policy) {
-        // Get the actual selected node for this policy group
-        if (typeof $surge !== "undefined") {
+        try {
             const details = $surge.selectGroupDetails();
-            nodeName = details.decisions[policy] || policy;
-            // Use the actual node name for HTTP request
-            actualPolicy = nodeName;
+            nodeName = details.decisions[POLICY_GROUP] || POLICY_GROUP;
+
+            // Try to get latency info
+            if (details.latencies && details.latencies[nodeName] !== undefined) {
+                latency = details.latencies[nodeName];
+            }
+        } catch (e) {
+            console.log(`[IPPure] Failed to get node info: ${e.message}`);
         }
-        proxyData = await fetchIP(actualPolicy);
     }
 
-    directData = await fetchIP("DIRECT");
+    // Fetch IP info using the selected node
+    const ipData = await fetchIP(nodeName);
 
-    const directLine = `🏠 ${formatInfo(directData)}`;
-    let proxyLine = "";
-    let tip = "";
+    const content = formatInfo(ipData, nodeName, latency);
 
-    if (policy) {
-        proxyLine = `\n🚀 ${formatInfo(proxyData)} (${nodeName})`;
-
-        if (!isLocked && proxyGroups.length > 1) {
-            const nextIndex = parseInt($persistentStore.read("ippure_index") || "0");
-            const nextPolicy = proxyGroups[nextIndex] || policy;
-            tip = isChinese()
-                ? `\n💡 当前检测: ${policy} | 点击切换到: ${nextPolicy}`
-                : `\n💡 Current: ${policy} | Tap for: ${nextPolicy}`;
-        }
-    } else {
-        proxyLine = isChinese() ? "\n🚀 未检出代理组" : "\n🚀 No Proxy Group";
-    }
-
-    // Icon set based on proxy risk if available, else direct
-    const score = (proxyData && proxyData.fraudScore) || (directData && directData.fraudScore) || 0;
+    // Icon based on purity percentage
+    const score = (ipData && ipData.fraudScore) || 0;
+    const purity = 100 - score;
     let riskColor = "#88A788";
     let riskIcon = "shield.check.fill";
-    if (score >= 40 && score < 70) {
-        riskColor = "#D4A017";
-        riskIcon = "exclamationmark.shield.fill";
-    } else if (score >= 70) {
+    if (purity < 30) {
         riskColor = "#C44";
         riskIcon = "shield.xmark.fill";
+    } else if (purity < 60) {
+        riskColor = "#D4A017";
+        riskIcon = "exclamationmark.shield.fill";
     }
 
     $done({
-        title: isChinese() ? "IPPure 双 IP 检测" : "IPPure Dual IP Check",
-        content: directLine + proxyLine + tip,
+        title: isChinese() ? "IPPure 节点监控" : "IPPure Node Monitor",
+        content: content,
         icon: riskIcon,
         "icon-color": riskColor
     });
