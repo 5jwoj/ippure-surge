@@ -7,7 +7,7 @@
  */
 
 const API_URL = "https://my.ippure.com/v1/info";
-const POLICY_GROUP = "自动测速"; // Fixed policy group name
+const POLICY_GROUP = "✈️ 自动测速"; // Fixed policy group name
 
 function isChinese() {
     const lang = ($environment.language || "").toLowerCase();
