@@ -1,8 +1,10 @@
 /**
- * IPPure Dual Panel for Surge
+ * IPPure Dual Panel for Surge (Enhanced Debug Version)
+ * Version: 2.0
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
+ * 3. Enhanced error logging and compatibility.
  */
 
 const API_URL = "https://my.ippure.com/v1/info";
@@ -14,13 +16,31 @@ function isChinese() {
 
 async function fetchIP(policy) {
     return new Promise((resolve) => {
-        const options = { url: API_URL, timeout: 10000 };
+        const options = {
+            url: API_URL,
+            timeout: 10000,
+            headers: {
+                "User-Agent": "Surge/5.0"
+            }
+        };
         if (policy) options.policy = policy;
+
         $httpClient.get(options, (error, response, data) => {
-            if (error || !data) resolve(null);
-            else {
-                try { resolve(JSON.parse(data)); }
-                catch (e) { resolve(null); }
+            if (error) {
+                console.log(`[IPPure] 请求失败 (${policy || "DIRECT"}): ${error}`);
+                resolve(null);
+            } else if (!data) {
+                console.log(`[IPPure] 无数据返回 (${policy || "DIRECT"})`);
+                resolve(null);
+            } else {
+                try {
+                    const json = JSON.parse(data);
+                    console.log(`[IPPure] 成功获取数据 (${policy || "DIRECT"}): fraudScore=${json.fraudScore}, isResidential=${json.isResidential}`);
+                    resolve(json);
+                } catch (e) {
+                    console.log(`[IPPure] JSON 解析失败: ${e.message}`);
+                    resolve(null);
+                }
             }
         });
     });
@@ -28,6 +48,7 @@ async function fetchIP(policy) {
 
 function formatInfo(json) {
     if (!json) return isChinese() ? "获取失败" : "Failed";
+
     const score = json.fraudScore || 0;
     const isRes = !!json.isResidential;
     const isBrd = !!json.isBroadcast;
@@ -55,15 +76,22 @@ function getArgs() {
 }
 
 (async () => {
+    console.log("[IPPure] 脚本启动...");
     const args = getArgs();
     let proxyGroups = [];
 
+    // 检测可用的策略组
     if (typeof $surge !== "undefined") {
-        const details = $surge.selectGroupDetails();
-        proxyGroups = Object.keys(details.decisions || {}).filter(name => {
-            const lowName = name.toLowerCase();
-            return !["direct", "reject", "dummy", "static", "ssid"].includes(lowName);
-        });
+        try {
+            const details = $surge.selectGroupDetails();
+            proxyGroups = Object.keys(details.decisions || {}).filter(name => {
+                const lowName = name.toLowerCase();
+                return !["direct", "reject", "dummy", "static", "ssid"].includes(lowName);
+            });
+            console.log(`[IPPure] 检测到策略组: ${proxyGroups.join(", ")}`);
+        } catch (e) {
+            console.log(`[IPPure] 策略组检测失败: ${e.message}`);
+        }
     }
 
     // Selection Logic:
@@ -81,9 +109,13 @@ function getArgs() {
         // Save next index for the next tap
         const nextIndex = (proxyGroups.length > 0) ? (currentIndex + 1) % proxyGroups.length : 0;
         $persistentStore.write(nextIndex.toString(), "ippure_index");
+        console.log(`[IPPure] 当前策略组: ${policy} (索引: ${currentIndex}/${proxyGroups.length})`);
+    } else if (isLocked) {
+        console.log(`[IPPure] 锁定策略组: ${policy}`);
     }
 
     // Parallel requests
+    console.log("[IPPure] 开始请求 IP 信息...");
     const [directData, proxyData] = await Promise.all([
         fetchIP("DIRECT"),
         policy ? fetchIP(policy) : Promise.resolve(null)
@@ -117,6 +149,8 @@ function getArgs() {
         riskColor = "#C44";
         riskIcon = "shield.xmark.fill";
     }
+
+    console.log(`[IPPure] 最终风险评分: ${score}, 图标: ${riskIcon}`);
 
     $done({
         title: isChinese() ? "IPPure 双 IP 检测" : "IPPure Dual IP Check",
