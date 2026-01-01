@@ -1,6 +1,6 @@
 /**
  * IPPure Dual Panel for Surge (Enhanced Debug Version)
- * Version: 2.1
+ * Version: 2.2
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
@@ -86,9 +86,15 @@ function getArgs() {
             const details = $surge.selectGroupDetails();
             proxyGroups = Object.keys(details.decisions || {}).filter(name => {
                 const lowName = name.toLowerCase();
-                return !["direct", "reject", "dummy", "static", "ssid"].includes(lowName);
+                // 排除系统保留组和选择组
+                if (["direct", "reject", "dummy", "static", "ssid"].includes(lowName)) {
+                    return false;
+                }
+                // 检查是否有实际的节点选择(不是空的或指向自己的)
+                const selectedNode = details.decisions[name];
+                return selectedNode && selectedNode !== name;
             });
-            console.log(`[IPPure] 检测到策略组: ${proxyGroups.join(", ")}`);
+            console.log(`[IPPure] 检测到可用策略组: ${proxyGroups.join(", ")}`);
         } catch (e) {
             console.log(`[IPPure] 策略组检测失败: ${e.message}`);
         }
