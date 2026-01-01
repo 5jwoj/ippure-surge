@@ -1,6 +1,6 @@
 /**
  * IPPure Dual Panel for Surge
- * Version: 2.4
+ * Version: 2.5
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
@@ -119,7 +119,11 @@ function getArgs() {
         proxyLine = `\n🚀 ${formatInfo(proxyData)} (${nodeName})`;
 
         if (!isLocked && proxyGroups.length > 1) {
-            tip = isChinese() ? "\n💡 长按编辑参数以固定组: policy=" + policy : "\n💡 Long-press to lock: policy=" + policy;
+            const nextIndex = parseInt($persistentStore.read("ippure_index") || "0");
+            const nextPolicy = proxyGroups[nextIndex] || policy;
+            tip = isChinese()
+                ? `\n💡 当前检测: ${policy} | 点击切换到: ${nextPolicy}`
+                : `\n💡 Current: ${policy} | Tap for: ${nextPolicy}`;
         }
     } else {
         proxyLine = isChinese() ? "\n🚀 未检出代理组" : "\n🚀 No Proxy Group";

@@ -21,14 +21,27 @@
 3. **点击刷新**：点击面板可手动触发脚本刷新当前 IP 信息。
 
 ### 进阶用法：检测代理节点
-如果你不想手动编辑配置文件，可以使用以下预设了常用策略组名称的 URL 进行安装：
 
-- **自动识别 (推荐)**: 自动尝试 `PROXY`, `Proxy`, `节点选择`, `全球加速`。
-  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure.sgmodule`
-- **指定 Proxy 组**:
-  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_proxy.sgmodule`
-- **指定 节点选择 组**:
-  `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_select.sgmodule`
+**自动循环模式（默认）**:
+- 脚本会自动检测所有可用的策略组
+- 每次点击面板会切换到下一个策略组
+- 面板底部显示：`💡 当前检测: XXX | 点击切换到: XXX`
+
+**固定特定策略组**:
+如果你想固定检测某个特定策略组，需要在模块配置中添加 `argument` 参数：
+
+1. 打开 Surge → 模块 → 找到 IPPure 模块 → 编辑
+2. 在 `[Panel]` 部分找到 `IPPure-IP-Info` 行
+3. 在行尾添加：`,argument=policy=你的策略组名`
+   
+**示例**：
+```ini
+IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600, argument=policy=🚀 节点选择
+```
+
+**预设模块（已固定策略组）**:
+- **指定 Proxy 组**: `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_proxy.sgmodule`
+- **指定 节点选择 组**: `https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure_select.sgmodule`
 
 ---
 
