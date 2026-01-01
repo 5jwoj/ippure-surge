@@ -1,6 +1,6 @@
 /**
  * IPPure Dual Panel for Surge (Enhanced Debug Version)
- * Version: 2.0
+ * Version: 2.1
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
@@ -18,7 +18,7 @@ async function fetchIP(policy) {
     return new Promise((resolve) => {
         const options = {
             url: API_URL,
-            timeout: 10000,
+            timeout: 4000,
             headers: {
                 "User-Agent": "Surge/5.0"
             }

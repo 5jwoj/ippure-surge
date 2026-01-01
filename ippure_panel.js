@@ -1,6 +1,6 @@
 /**
  * IPPure Dual Panel for Surge
- * Version: 2.0
+ * Version: 2.1
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
@@ -15,7 +15,7 @@ function isChinese() {
 
 async function fetchIP(policy) {
     return new Promise((resolve) => {
-        const options = { url: API_URL, timeout: 10000 };
+        const options = { url: API_URL, timeout: 4000 };
         if (policy) options.policy = policy;
         $httpClient.get(options, (error, response, data) => {
             if (error || !data) resolve(null);
