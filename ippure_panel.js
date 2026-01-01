@@ -1,9 +1,10 @@
 /**
  * IPPure Single Node Monitor for Surge
- * Version: 3.0
+ * Version: 3.0.2
  * Features:
  * - Monitor the best node (lowest latency) from "自动测速" policy group
  * - Display: Node Name | Purity% | IP Type | Location | Latency
+ * - Measure actual latency by API response time
  */
 
 const API_URL = "https://my.ippure.com/v1/info";
@@ -16,14 +17,22 @@ function isChinese() {
 
 async function fetchIP(policy) {
     return new Promise((resolve) => {
+        const startTime = Date.now();
         const timeout = 4000;
         const options = { url: API_URL, timeout: timeout };
         if (policy) options.policy = policy;
+
         $httpClient.get(options, (error, response, data) => {
-            if (error || !data) resolve(null);
-            else {
-                try { resolve(JSON.parse(data)); }
-                catch (e) { resolve(null); }
+            const latency = Date.now() - startTime;
+            if (error || !data) {
+                resolve({ data: null, latency: null });
+            } else {
+                try {
+                    const json = JSON.parse(data);
+                    resolve({ data: json, latency: latency });
+                } catch (e) {
+                    resolve({ data: null, latency: null });
+                }
             }
         });
     });
@@ -54,25 +63,21 @@ function formatInfo(json, nodeName, latency) {
 
 (async () => {
     let nodeName = POLICY_GROUP;
-    let latency = null;
 
     // Get the selected node from the policy group
     if (typeof $surge !== "undefined") {
         try {
             const details = $surge.selectGroupDetails();
             nodeName = details.decisions[POLICY_GROUP] || POLICY_GROUP;
-
-            // Try to get latency info
-            if (details.latencies && details.latencies[nodeName] !== undefined) {
-                latency = details.latencies[nodeName];
-            }
         } catch (e) {
             console.log(`[IPPure] Failed to get node info: ${e.message}`);
         }
     }
 
-    // Fetch IP info using the selected node
-    const ipData = await fetchIP(nodeName);
+    // Fetch IP info using the selected node and measure latency
+    const result = await fetchIP(nodeName);
+    const ipData = result.data;
+    const latency = result.latency;
 
     const content = formatInfo(ipData, nodeName, latency);
 

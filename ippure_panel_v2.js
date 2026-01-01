@@ -1,9 +1,10 @@
 /**
  * IPPure Single Node Monitor for Surge (Enhanced Debug Version)
- * Version: 3.0
+ * Version: 3.0.2
  * Features:
  * - Monitor the best node (lowest latency) from "自动测速" policy group
  * - Display: Node Name | Purity% | IP Type | Location | Latency
+ * - Measure actual latency by API response time
  */
 
 const API_URL = "https://my.ippure.com/v1/info";
@@ -16,6 +17,7 @@ function isChinese() {
 
 async function fetchIP(policy) {
     return new Promise((resolve) => {
+        const startTime = Date.now();
         const timeout = 4000;
         const options = {
             url: API_URL,
@@ -27,20 +29,23 @@ async function fetchIP(policy) {
         if (policy) options.policy = policy;
 
         $httpClient.get(options, (error, response, data) => {
+            const latency = Date.now() - startTime;
+            console.log(`[IPPure] 延迟测量: ${latency}ms (${policy || "DIRECT"})`);
+
             if (error) {
                 console.log(`[IPPure] 请求失败 (${policy || "DIRECT"}): ${error}`);
-                resolve(null);
+                resolve({ data: null, latency: null });
             } else if (!data) {
                 console.log(`[IPPure] 无数据返回 (${policy || "DIRECT"})`);
-                resolve(null);
+                resolve({ data: null, latency: null });
             } else {
                 try {
                     const json = JSON.parse(data);
                     console.log(`[IPPure] 成功获取数据 (${policy}): fraudScore=${json.fraudScore}, isResidential=${json.isResidential}`);
-                    resolve(json);
+                    resolve({ data: json, latency: latency });
                 } catch (e) {
                     console.log(`[IPPure] JSON 解析失败: ${e.message}`);
-                    resolve(null);
+                    resolve({ data: null, latency: null });
                 }
             }
         });
@@ -73,7 +78,6 @@ function formatInfo(json, nodeName, latency) {
 (async () => {
     console.log("[IPPure] 脚本启动...");
     let nodeName = POLICY_GROUP;
-    let latency = null;
 
     // Get the selected node from the policy group
     if (typeof $surge !== "undefined") {
@@ -81,20 +85,16 @@ function formatInfo(json, nodeName, latency) {
             const details = $surge.selectGroupDetails();
             nodeName = details.decisions[POLICY_GROUP] || POLICY_GROUP;
             console.log(`[IPPure] 策略组: ${POLICY_GROUP} -> 节点: ${nodeName}`);
-
-            // Try to get latency info
-            if (details.latencies && details.latencies[nodeName] !== undefined) {
-                latency = details.latencies[nodeName];
-                console.log(`[IPPure] 节点延迟: ${latency}ms`);
-            }
         } catch (e) {
             console.log(`[IPPure] 获取节点信息失败: ${e.message}`);
         }
     }
 
-    // Fetch IP info using the selected node
+    // Fetch IP info using the selected node and measure latency
     console.log("[IPPure] 开始请求 IP 信息...");
-    const ipData = await fetchIP(nodeName);
+    const result = await fetchIP(nodeName);
+    const ipData = result.data;
+    const latency = result.latency;
 
     const content = formatInfo(ipData, nodeName, latency);
 
