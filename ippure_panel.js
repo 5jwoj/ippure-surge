@@ -1,6 +1,6 @@
 /**
  * IPPure Dual Panel for Surge
- * Version: 2.3
+ * Version: 2.4
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
@@ -95,9 +95,18 @@ function getArgs() {
     // Serial requests: Proxy first (fast), then Direct (may be slow)
     let proxyData = null;
     let directData = null;
+    let actualPolicy = policy;
+    let nodeName = policy;
 
     if (policy) {
-        proxyData = await fetchIP(policy);
+        // Get the actual selected node for this policy group
+        if (typeof $surge !== "undefined") {
+            const details = $surge.selectGroupDetails();
+            nodeName = details.decisions[policy] || policy;
+            // Use the actual node name for HTTP request
+            actualPolicy = nodeName;
+        }
+        proxyData = await fetchIP(actualPolicy);
     }
 
     directData = await fetchIP("DIRECT");
@@ -107,9 +116,6 @@ function getArgs() {
     let tip = "";
 
     if (policy) {
-        const nodeName = (typeof $surge !== "undefined")
-            ? ($surge.selectGroupDetails().decisions[policy] || policy)
-            : policy;
         proxyLine = `\n🚀 ${formatInfo(proxyData)} (${nodeName})`;
 
         if (!isLocked && proxyGroups.length > 1) {
