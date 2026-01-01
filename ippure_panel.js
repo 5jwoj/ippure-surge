@@ -1,5 +1,6 @@
 /**
  * IPPure Dual Panel for Surge
+ * Version: 2.0
  * Features:
  * 1. Shows both Direct (Local) and Proxy IP info.
  * 2. Tap to cycle through detected Proxy Groups.
