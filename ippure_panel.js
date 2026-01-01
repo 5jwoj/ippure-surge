@@ -1,10 +1,11 @@
 /**
- * IPPure Single Node Monitor for Surge
- * Version: 3.0.2
- * Features:
- * - Monitor the best node (lowest latency) from "自动测速" policy group
- * - Display: Node Name | Purity% | IP Type | Location | Latency
- * - Measure actual latency by API response time
+ * IPPure Panel Script for Surge
+ * Version: 1.0
+ * 
+ * 功能:
+ * - 监控"✈️ 自动测速"策略组的最优节点
+ * - 显示: 节点名称 | 纯净度% | IP类型 | 地理位置 | 延迟
+ * - 通过实时测量 API 响应时间获取延迟
  */
 
 const API_URL = "https://my.ippure.com/v1/info";

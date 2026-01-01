@@ -1,7 +1,8 @@
 #!name=IPPure IP Info
-#!desc=通过 IPPure.com 展示 IP 详情。支持参数如 argument=policy=Proxy 以查看特定策略组。
+#!desc=实时监控代理节点的 IP 纯净度、延迟和地理位置信息
 #!icon=https://ippure.com/logo.png
-#!author=Stash & Antigravity
+#!author=Antigravity
+#!homepage=https://github.com/5jwoj/ippure-surge
 
 [Panel]
 IPPure-IP-Info = script-name=IPPure-IP-Info, update-interval=3600
