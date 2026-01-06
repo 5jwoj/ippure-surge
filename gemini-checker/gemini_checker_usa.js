@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.2.2
+ * 版本: v1.2.3
  * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
  */
 
@@ -9,16 +9,14 @@ const TIMEOUT = 5000; // 5秒超时
 // 根据日志，实际包含具体节点列表的策略组名为 "美国手动"
 const POLICY_GROUP_NAME = "美国手动";
 
-// 全局变量用于控制Debug日志只打印一次
-if (typeof global !== 'undefined') {
-    global.debugLogged = false;
-}
+// 模块级变量控制日志
+let isDebugLogged = false;
 
 /**
  * 主函数
  */
 async function main() {
-    console.log(`🚀 Gemini检测器 v1.2.2 开始运行...`);
+    console.log(`🚀 Gemini检测器 v1.2.3 开始运行...`);
     try {
         // 获取策略组信息
         let allGroupDetails;
@@ -156,10 +154,10 @@ async function testNode(rawNodeName) {
     const nodeName = rawNodeName.trim().replace(/\u00A0/g, ' ');
 
     // 调试: 打印第一个节点的编码，检查是否有隐形字符
-    if (!global.debugLogged) {
+    if (!isDebugLogged) {
         console.log(`Debug Node Name: "${nodeName}"`);
         console.log(`Debug Node Encode: ${encodeURIComponent(nodeName)}`);
-        global.debugLogged = true;
+        isDebugLogged = true;
     }
 
     try {
