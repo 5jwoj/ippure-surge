@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.8.0
+ * 版本: v2.0.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -45,95 +45,62 @@ async function main() {
 }
 
 /**
- * 获取策略组中的所有代理节点（递归处理嵌套策略组）
+ * 获取策略组中的所有代理节点（支持地区策略组）
  */
 function getPolicyNodes() {
     try {
         const details = $surge.selectGroupDetails();
-        const groups = details.groups || {}; // 策略组数据在groups属性中
+        const groups = details.groups || {};
+        const decisions = details.decisions || {};
 
-        // 调试：打印所有可用的策略组名称
         console.log("===== 调试信息 =====");
-        console.log("可用的策略组列表:");
-        const groupNames = Object.keys(groups);
-        groupNames.forEach(name => {
-            console.log(`  - "${name}"`);
-        });
         console.log(`目标策略组: "${POLICY_GROUP_NAME}"`);
 
-        // 检查目标策略组是否存在
         if (!groups[POLICY_GROUP_NAME]) {
             console.log(`❌ 未找到策略组 "${POLICY_GROUP_NAME}"`);
-            console.log("可能的原因：策略组名称不匹配");
             return [];
         }
 
         console.log(`✅ 找到策略组 "${POLICY_GROUP_NAME}"`);
-        console.log(`该策略组包含: ${JSON.stringify(groups[POLICY_GROUP_NAME])}`);
+        const policyGroup = groups[POLICY_GROUP_NAME];
+        console.log(`该策略组包含: ${JSON.stringify(policyGroup)}`);
 
-        const allNodes = new Set(); // 使用Set避免重复节点
+        const nodesToTest = [];
 
-        // 递归函数：从策略组中提取所有实际节点
-        function extractNodes(groupName, visited = new Set(), depth = 0) {
-            const indent = "  ".repeat(depth);
-
-            // 避免循环引用
-            if (visited.has(groupName)) {
-                console.log(`${indent}⚠️ 跳过已访问的策略组: ${groupName}`);
-                return;
-            }
-            visited.add(groupName);
-
-            const group = groups[groupName];
-            if (!group) {
-                console.log(`${indent}⚠️ 策略组 "${groupName}" 不存在`);
-                return;
+        for (const item of policyGroup) {
+            // 跳过特殊策略
+            if (!item || item === "DIRECT" || item === "REJECT" || item === "PROXY") {
+                console.log(`⊗ 跳过特殊策略: ${item}`);
+                continue;
             }
 
-            console.log(`${indent}📂 处理策略组: ${groupName} (包含 ${group.length} 项)`);
-
-            for (const item of group) {
-                // 跳过特殊策略
-                if (!item || item === "DIRECT" || item === "REJECT" || item === "PROXY") {
-                    console.log(`${indent}  ⊗ 跳过特殊策略: ${item}`);
-                    continue;
-                }
-
-                // 检查是否是嵌套的策略组
-                if (groups[item]) {
-                    // 递归获取嵌套策略组中的节点
-                    console.log(`${indent}  📁 发现嵌套策略组: ${item}`);
-                    extractNodes(item, visited, depth + 1);
+            // 检查是否是嵌套的策略组
+            if (groups[item]) {
+                // 这是一个策略组，获取其当前选中的节点
+                const selectedNode = decisions[item];
+                if (selectedNode && selectedNode !== "DIRECT" && selectedNode !== "REJECT") {
+                    console.log(`📁 地区策略组 "${item}" 当前使用节点: ${selectedNode}`);
+                    nodesToTest.push({
+                        nodeName: selectedNode,
+                        groupName: item
+                    });
                 } else {
-                    // 使用模式匹配判断是否是策略组名称（而非真实节点）
-                    // 策略组通常包含：emoji + 地区/功能名称，或者纯中文功能名
-                    const isPolicyGroupName = /^[🇨🇳🇭🇰🇺🇲🇸🇬🇯🇵🇹🇼✈️🎯📡]+ /.test(item) ||
-                        /^[\u4e00-\u9fa5]+$/.test(item) ||
-                        item.includes("节点") ||
-                        item.includes("选择") ||
-                        item.includes("自动");
-
-                    if (isPolicyGroupName) {
-                        // 可能是策略组但不在groups中，尝试递归
-                        console.log(`${indent}  🔍 "${item}" 看起来像策略组，尝试查找...`);
-                        // 即使不在groups中，也可能需要跳过
-                        console.log(`${indent}  ⊗ 跳过疑似策略组: ${item}`);
-                    } else {
-                        // 这是一个实际的节点（真实代理服务器）
-                        console.log(`${indent}  ✓ 添加节点: ${item}`);
-                        allNodes.add(item);
-                    }
+                    console.log(`⚠️ 地区策略组 "${item}" 没有选中节点`);
                 }
+            } else {
+                // 这可能是一个节点名称
+                console.log(`✓ 直接添加节点: ${item}`);
+                nodesToTest.push({
+                    nodeName: item,
+                    groupName: null
+                });
             }
         }
 
-        // 从目标策略组开始递归
-        extractNodes(POLICY_GROUP_NAME);
-
-        const nodeArray = Array.from(allNodes);
-        console.log(`\n最终结果: 共发现 ${nodeArray.length} 个节点`);
+        console.log(`\n最终结果: 共发现 ${nodesToTest.length} 个节点/策略组`);
         console.log("===== 调试结束 =====\n");
-        return nodeArray;
+
+        return nodesToTest;
 
     } catch (error) {
         console.log(`❌ 获取策略组失败: ${error}`);
@@ -145,11 +112,15 @@ function getPolicyNodes() {
 /**
  * 测试所有节点
  */
-async function testAllNodes(nodes) {
+async function testAllNodes(nodeList) {
     const results = [];
 
-    for (const nodeName of nodes) {
+    for (const nodeInfo of nodeList) {
+        const nodeName = nodeInfo.nodeName;
+        const groupName = nodeInfo.groupName;
+
         const result = await testNode(nodeName);
+        result.groupName = groupName; // 添加地区信息
         results.push(result);
     }
 
@@ -218,50 +189,51 @@ async function testNode(nodeName) {
 }
 
 /**
- * 格式化结果
+ * 格式化检测结果
  */
 function formatResults(results) {
-    const availableNodes = results.filter(r => r.available);
-    const unavailableNodes = results.filter(r => !r.available);
+    const available = results.filter(r => r.available).sort((a, b) => a.latency - b.latency);
+    const unavailable = results.filter(r => !r.available);
 
     let content = "";
+    let title = "";
+    let icon = "checkmark.circle.fill";
+    let iconColor = "#34C759";
 
-    // 可用节点
-    if (availableNodes.length > 0) {
-        content += `✅ 可用节点 (${availableNodes.length}个):\n`;
-        availableNodes.forEach((result, index) => {
-            const emoji = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "▫️";
-            content += `${emoji} ${result.node}\n   延时: ${result.latency}ms\n`;
-        });
-    }
+    if (available.length === 0) {
+        title = "❌ 无可用节点";
+        content = `检测了${results.length}个地区策略组，均无法访问Gemini`;
+        icon = "xmark.circle.fill";
+        iconColor = "#FF3B30";
+    } else {
+        title = `✅ 可用地区 (${available.length}个)`;
 
-    // 不可用节点
-    if (unavailableNodes.length > 0) {
-        if (content) content += "\n";
-        content += `❌ 不可用节点 (${unavailableNodes.length}个):\n`;
-        unavailableNodes.slice(0, 5).forEach(result => {
-            content += `▫️ ${result.node}\n`;
-            if (result.error) {
-                content += `   错误: ${result.error.substring(0, 30)}\n`;
-            }
+        // 显示可用的地区和节点
+        available.forEach((result, index) => {
+            const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}.`;
+            const groupInfo = result.groupName ? `\n   地区: ${result.groupName}` : "";
+            content += `${medal} ${result.node}${groupInfo}\n   延时: ${result.latency}ms\n\n`;
         });
-        if (unavailableNodes.length > 5) {
-            content += `... 还有 ${unavailableNodes.length - 5} 个不可用节点\n`;
+
+        // 显示不可用的地区
+        if (unavailable.length > 0) {
+            content += `\n❌ 不可用地区 (${unavailable.length}个):\n`;
+            unavailable.forEach(result => {
+                const groupInfo = result.groupName ? ` (${result.groupName})` : "";
+                const error = result.error ? `: ${result.error}` : "";
+                content += `• ${result.node}${groupInfo}${error}\n`;
+            });
         }
     }
-
-    // 汇总信息
-    const title = availableNodes.length > 0
-        ? `✅ 最快: ${availableNodes[0].node} (${availableNodes[0].latency}ms)`
-        : `❌ 无可用节点`;
 
     return {
         title: title,
         content: content.trim(),
-        icon: availableNodes.length > 0 ? "checkmark.circle.fill" : "xmark.circle.fill",
-        "icon-color": availableNodes.length > 0 ? "#34C759" : "#FF3B30"
+        icon: icon,
+        "icon-color": iconColor
     };
 }
 
 // 执行主函数
 main().then($done);
+```
