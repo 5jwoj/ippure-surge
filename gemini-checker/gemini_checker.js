@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.2.0
+ * 版本: v1.3.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -45,30 +45,51 @@ async function main() {
 }
 
 /**
- * 获取策略组中的所有代理节点
+ * 获取策略组中的所有代理节点（递归处理嵌套策略组）
  */
 function getPolicyNodes() {
     try {
         const details = $surge.selectGroupDetails();
-        const policyGroup = details[POLICY_GROUP_NAME];
+        const allNodes = new Set(); // 使用Set避免重复节点
 
-        if (!policyGroup) {
-            return [];
-        }
+        // 递归函数：从策略组中提取所有实际节点
+        function extractNodes(groupName, visited = new Set()) {
+            // 避免循环引用
+            if (visited.has(groupName)) {
+                return;
+            }
+            visited.add(groupName);
 
-        const nodes = [];
-        // Get all nodes from the policy group
-        for (const node of policyGroup) {
-            // Filter out special policies
-            if (node &&
-                node !== "DIRECT" &&
-                node !== "REJECT" &&
-                node !== "PROXY" &&
-                !node.startsWith("🎯")) {
-                nodes.push(node);
+            const group = details[groupName];
+            if (!group) {
+                return;
+            }
+
+            for (const item of group) {
+                // 跳过特殊策略
+                if (!item || item === "DIRECT" || item === "REJECT" || item === "PROXY") {
+                    continue;
+                }
+
+                // 检查是否是嵌套的策略组
+                if (details[item]) {
+                    // 递归获取嵌套策略组中的节点
+                    console.log(`发现嵌套策略组: ${item}`);
+                    extractNodes(item, visited);
+                } else {
+                    // 这是一个实际的节点
+                    allNodes.add(item);
+                }
             }
         }
-        return nodes;
+
+        // 从目标策略组开始递归
+        extractNodes(POLICY_GROUP_NAME);
+
+        const nodeArray = Array.from(allNodes);
+        console.log(`共发现 ${nodeArray.length} 个节点`);
+        return nodeArray;
+
     } catch (error) {
         console.log(`获取策略组失败: ${error}`);
         return [];
