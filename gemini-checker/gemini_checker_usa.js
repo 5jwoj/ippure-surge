@@ -6,7 +6,7 @@
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
 const TIMEOUT = 5000; // 5秒超时
-const POLICY_GROUP_NAME = "美国手动";
+const POLICY_GROUP_NAME = "美国节点";
 
 /**
  * 主函数
