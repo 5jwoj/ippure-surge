@@ -1,5 +1,5 @@
 #!name=Gemini节点检测器
-#!desc=检测Gemini策略组中可用的节点并按延时排序
+#!desc=检测指定策略组中可用的Gemini节点并按延时排序
 #!author=Antigravity
 #!homepage=https://github.com/5jwoj/Surge
 #!system=ios,mac
