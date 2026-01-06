@@ -8,4 +8,4 @@
 GeminiChecker = script-name=GeminiChecker, update-interval=-1
 
 [Script]
-GeminiChecker = type=generic, timeout=60, script-path=https://raw.githubusercontent.com/5jwoj/Surge/main/gemini-checker/gemini_checker.js, argument=Gemini
+GeminiChecker = type=generic, timeout=60, script-path=https://raw.githubusercontent.com/5jwoj/Surge/main/gemini-checker/gemini_checker.js, argument=谷歌服务
