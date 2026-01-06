@@ -1,12 +1,12 @@
 /**
  * Gemini节点检测器
- * 版本: v1.5.0
+ * 版本: v1.6.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
 const TIMEOUT = 5000; // 5秒超时
-const POLICY_GROUP_NAME = $argument || "谷歌服务"; // 从参数获取策略组名，默认为谷歌服务
+const POLICY_GROUP_NAME = $argument || "✈️ 自动测速"; // 从参数获取策略组名，默认为✈️ 自动测速
 
 /**
  * 主函数
