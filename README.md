@@ -1,177 +1,123 @@
-# IPPure - IP 纯净度检测 Surge 模块
+# Surge 模块集合
 
-> 实时监控代理节点的 IP 纯净度,帮助您选择最优质的代理服务器
-
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/5jwoj/ippure-surge/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/5jwoj/Surge/blob/main/LICENSE)
 [![Surge](https://img.shields.io/badge/Surge-iOS%205.0%2B%20%7C%20Mac%204.0%2B-orange.svg)](https://nssurge.com)
 
-## 功能特点
+精选实用的Surge模块集合，提升您的网络体验。
 
-- 🎯 **单节点监控**: 自动监控"✈️ 自动测速"策略组的当前最优节点
-- 📊 **纯净度评分**: 显示 IP 纯净度百分比 (100% = 最干净)
-- 🏠 **IP 类型识别**: 区分住宅/机房 IP 和原生/广播 IP
-- 🌍 **地理位置**: 显示节点所在城市/地区
-- ⚡ **实时延迟**: 通过测量 API 响应时间显示真实延迟
-- 🎨 **视觉提示**: 根据纯净度自动调整图标颜色
+## 📦 模块列表
 
-## 快速开始
+### 1️⃣ IPPure - IP纯净度检测
+
+实时监控代理节点的IP纯净度，帮助您选择最优质的代理服务器。
+
+**功能特点**：
+- 🎯 单节点监控
+- 📊 纯净度评分 (0-100%)
+- 🏠 IP类型识别（住宅/机房、原生/广播）
+- 🌍 地理位置显示
+- ⚡ 实时延迟测量
+
+**安装地址**：
+```
+https://raw.githubusercontent.com/5jwoj/Surge/main/ippure/ippure.sgmodule
+```
+
+**详细文档**：[IPPure README](./ippure/README.md)
+
+---
+
+### 2️⃣ Gemini节点检测器
+
+检测Gemini策略组中哪些节点可以访问Gemini API，并按延时排序显示结果。
+
+**功能特点**：
+- ✅ 自动节点发现
+- ✅ Gemini API连通性测试
+- ✅ 延时测量和排序
+- 🥇 前三名节点特殊标记
+- 📊 可用/不可用节点统计
+
+**安装地址**：
+```
+https://raw.githubusercontent.com/5jwoj/Surge/main/gemini-checker/gemini_checker.sgmodule
+```
+
+**详细文档**：[Gemini Checker README](./gemini-checker/README.md)
+
+---
+
+## 🚀 快速开始
 
 ### 安装方法
 
-在 Surge 中添加模块:
+1. 打开Surge应用
+2. 点击底部「模块」标签
+3. 点击右上角「+」
+4. 选择「安装新模块」
+5. 粘贴上方对应的模块URL
+6. 点击「确定」
+
+### 使用建议
+
+- **IPPure**：适合需要监控代理IP质量的场景，特别是访问流媒体、电商等服务
+- **Gemini Checker**：适合使用Gemini AI服务，需要找到最优节点的用户
+
+## 📁 仓库结构
 
 ```
-https://raw.githubusercontent.com/5jwoj/ippure-surge/main/ippure.sgmodule
+Surge/
+├── README.md                # 本文件
+├── ippure/                  # IP纯净度检测模块
+│   ├── ippure.sgmodule
+│   ├── ippure_panel.js
+│   ├── README.md
+│   └── TROUBLESHOOTING.md
+└── gemini-checker/          # Gemini节点检测模块
+    ├── gemini_checker.sgmodule
+    ├── gemini_checker.js
+    ├── README.md
+    └── USAGE.md
 ```
 
-**详细步骤:**
-
-1. 打开 Surge
-2. 点击底部"模块"标签
-3. 点击右上角"+"
-4. 选择"安装新模块"
-5. 粘贴上方 URL
-6. 点击"确定"
-
-### 面板显示
-
-安装后,面板将显示如下信息:
-
-```
-IPPure 节点监控
-✈️ 自动测速
-纯净度: 83% | 住宅·原生
-Los Angeles | 延迟: 245ms
-```
-
-## 显示说明
-
-### 纯净度评分
-
-- **80% - 100%**: 🟢 优质 IP (绿色图标)
-- **40% - 79%**: 🟡 一般 IP (黄色图标)
-- **0% - 39%**: 🔴 污染 IP (红色图标)
-
-纯净度越高,IP 被封禁的风险越低,适合访问有限制的服务。
-
-### IP 类型
-
-| 类型 | 说明 | 适用场景 |
-|------|------|----------|
-| **住宅·原生** | 家庭宽带 IP,原生归属地 | ⭐⭐⭐ 流媒体、电商 |
-| **住宅·广播** | 家庭宽带 IP,广播路由 | ⭐⭐ 一般用途 |
-| **机房·原生** | 数据中心 IP,原生归属地 | ⭐⭐ 网站访问 |
-| **机房·广播** | 数据中心 IP,广播路由 | ⭐ 基础用途 |
-
-### 延迟测量
-
-延迟值通过实际 API 请求响应时间计算,包含:
-- 网络往返时间 (RTT)
-- 代理节点转发延迟
-- 服务器处理时间
-
-比单纯的 ping 延迟更能反映实际使用体验。
-
-## 配置要求
-
-### 策略组设置
-
-模块默认监控名为 **"✈️ 自动测速"** 的策略组。
-
-如果您的策略组名称不同,请修改脚本第 10 行:
-
-```javascript
-const POLICY_GROUP = "✈️ 自动测速"; // 改为您的策略组名称
-```
-
-### Surge 版本
+## 🔧 要求
 
 - **Surge iOS**: 5.0 或更高版本
 - **Surge Mac**: 4.0 或更高版本
 
-## 常见问题
+## 💡 常见问题
 
-### ❓ 面板显示"获取失败"
+### 模块无法加载？
+- 检查Surge版本是否符合要求
+- 确认网络连接正常
+- 查看Surge日志获取详细错误信息
 
-**可能原因:**
-1. 网络连接问题
-2. IPPure API 暂时不可用
-3. 代理节点无法访问外部网络
+### 面板不显示？
+- 确认模块已启用
+- 检查策略组名称是否正确
+- 重启Surge应用
 
-**解决方案:**
-```bash
-# 在终端测试 API 连通性
-curl -s "https://my.ippure.com/v1/info"
-```
+更多问题请查看各模块的详细文档。
 
-### ❓ 延迟显示为 "?"
+## 📝 版本历史
 
-**可能原因:**
-- API 请求超时(超过 4 秒)
-- 代理节点连接失败
+### v1.0.0 (2026-01-06)
+- 🎉 重构仓库结构
+- ➕ 新增Gemini节点检测模块
+- ✅ IPPure模块稳定版本
 
-**解决方案:**
-- 检查代理节点是否正常工作
-- 切换到其他节点测试
+## 🤝 贡献
 
-### ❓ 找不到策略组
+欢迎提交Issue和Pull Request！
 
-**解决方案:**
-确保您在 Surge 配置中有名为 "✈️ 自动测速" 的策略组,或修改脚本以匹配您的策略组名称。
-
-## 技术说明
-
-### API 端点
-
-本模块使用 IPPure API 获取 IP 信息:
-- **端点**: `https://my.ippure.com/v1/info`
-- **超时**: 4 秒
-- **协议**: HTTPS
-
-### 数据字段
-
-API 返回的主要字段:
-- `fraudScore`: 风险评分 (0-100)
-- `isResidential`: 是否住宅 IP
-- `isBroadcast`: 是否广播 IP  
-- `city`, `region`, `country`: 地理位置
-
-### 隐私说明
-
-- ✅ 仅查询 IP 元数据,不记录个人信息
-- ✅ 所有请求通过 HTTPS 加密
-- ✅ 不收集或存储用户数据
-
-## 项目文件
-
-```
-ippure-surge/
-├── ippure.sgmodule        # Surge 模块配置
-├── ippure_panel.js        # 面板脚本
-├── README.md              # 使用指南(本文件)
-└── TROUBLESHOOTING.md     # 故障排查指南
-```
-
-## 版本历史
-
-### v1.0 (2026-01-02)
-- 🎉 正式版本发布
-- ✅ 单节点监控模式
-- ✅ 纯净度百分比显示
-- ✅ 实时延迟测量
-- ✅ IP 类型和地理位置识别
-
-## 许可证
+## 📄 许可证
 
 本项目采用 MIT 许可证。
 
-## 鸣谢
+## ⭐ Star
 
-- IP 数据由 [IPPure](https://ippure.com) 提供
-- 感谢 [Surge](https://nssurge.com) 提供强大的脚本支持
+如果这些模块对您有帮助，请给个⭐支持一下！
 
 ---
 
-**问题反馈**: [GitHub Issues](https://github.com/5jwoj/ippure-surge/issues)
-
-**Star 本项目**: 如果觉得有用,请给个 ⭐ 支持一下!
+**问题反馈**: [GitHub Issues](https://github.com/5jwoj/Surge/issues)
