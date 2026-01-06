@@ -14,7 +14,13 @@ const POLICY_GROUP_NAME = $argument ? decodeURIComponent($argument) : "Gemini"; 
 async function main() {
     try {
         // 获取策略组信息
-        const policyGroup = $surge.policy(POLICY_GROUP_NAME);
+        // 使用 $surge.selectGroupDetails 获取策略组详情
+        let policyGroup;
+        try {
+            policyGroup = $surge.selectGroupDetails(POLICY_GROUP_NAME);
+        } catch (e) {
+            // 忽略
+        }
 
         if (!policyGroup) {
             return {
@@ -61,7 +67,7 @@ async function main() {
  */
 function getPolicyNodes(policyGroup) {
     const nodes = [];
-    const groupInfo = policyGroup.content || [];
+    const groupInfo = policyGroup.options || [];
 
     for (const item of groupInfo) {
         // 过滤掉"DIRECT"、"REJECT"等特殊策略

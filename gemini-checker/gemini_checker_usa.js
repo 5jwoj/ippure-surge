@@ -14,18 +14,26 @@ const POLICY_GROUP_NAME = "美国手动";
 async function main() {
     try {
         // 获取策略组信息
-        const policyGroup = $surge.policy(POLICY_GROUP_NAME);
+        // 使用 $surge.selectGroupDetails 获取策略组详情
+        // 注意: 这需要由 Surge 这里的 API 支持
+        let policyGroup;
+        try {
+            policyGroup = $surge.selectGroupDetails(POLICY_GROUP_NAME);
+        } catch (e) {
+            // 忽略错误，下面判断 policyGroup
+        }
 
         if (!policyGroup) {
             return {
                 title: "❌ 错误",
-                content: `策略组"${POLICY_GROUP_NAME}"不存在`,
+                content: `策略组"${POLICY_GROUP_NAME}"不存在或无法访问`,
                 icon: "xmark.circle.fill",
                 "icon-color": "#FF3B30"
             };
         }
 
         // 获取策略组中的所有节点
+        // selectGroupDetails 返回对象包含 options 数组
         const nodes = getPolicyNodes(policyGroup);
 
         if (nodes.length === 0) {
@@ -59,9 +67,12 @@ async function main() {
 /**
  * 获取策略组中的所有代理节点
  */
+/**
+ * 获取策略组中的所有代理节点
+ */
 function getPolicyNodes(policyGroup) {
     const nodes = [];
-    const groupInfo = policyGroup.content || [];
+    const groupInfo = policyGroup.options || [];
 
     for (const item of groupInfo) {
         // 过滤掉"DIRECT"、"REJECT"等特殊策略
