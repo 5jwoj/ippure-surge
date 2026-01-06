@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.7.0
+ * 版本: v1.8.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -168,50 +168,53 @@ async function testAllNodes(nodes) {
  * 测试单个节点
  */
 async function testNode(nodeName) {
-    const startTime = Date.now();
+    return new Promise((resolve) => {
+        const startTime = Date.now();
 
-    try {
-        const response = await $httpClient.get({
+        $httpClient.get({
             url: GEMINI_TEST_URL,
             timeout: TIMEOUT / 1000,
             policy: nodeName,
             headers: {
                 "User-Agent": "Surge/5.0"
             }
+        }, (error, response, data) => {
+            const latency = Date.now() - startTime;
+
+            // 处理错误情况
+            if (error) {
+                console.log(`✗ ${nodeName}: ${error}`);
+                resolve({
+                    node: nodeName,
+                    available: false,
+                    latency: latency,
+                    error: error.toString()
+                });
+                return;
+            }
+
+            // 检查响应状态
+            if (response && (response.status === 200 || response.status === 403)) {
+                // 200表示成功，403可能是API key问题但连接正常
+                console.log(`✓ ${nodeName}: ${latency}ms`);
+                resolve({
+                    node: nodeName,
+                    available: true,
+                    latency: latency,
+                    status: response.status
+                });
+            } else {
+                const statusCode = response ? response.status : 'unknown';
+                console.log(`✗ ${nodeName}: HTTP ${statusCode}`);
+                resolve({
+                    node: nodeName,
+                    available: false,
+                    latency: latency,
+                    error: `HTTP ${statusCode}`
+                });
+            }
         });
-
-        const latency = Date.now() - startTime;
-
-        // 检查响应状态
-        if (response.status === 200 || response.status === 403) {
-            // 200表示成功，403可能是API key问题但连接正常
-            console.log(`✓ ${nodeName}: ${latency}ms`);
-            return {
-                node: nodeName,
-                available: true,
-                latency: latency,
-                status: response.status
-            };
-        } else {
-            console.log(`✗ ${nodeName}: HTTP ${response.status}`);
-            return {
-                node: nodeName,
-                available: false,
-                latency: latency,
-                error: `HTTP ${response.status}`
-            };
-        }
-
-    } catch (error) {
-        const latency = Date.now() - startTime;
-        console.log(`✗ ${nodeName}: ${error}`);
-        return {
-            node: nodeName,
-            available: false,
-            latency: latency,
-            error: error.toString()
-        };
-    }
+    });
 }
 
 /**
