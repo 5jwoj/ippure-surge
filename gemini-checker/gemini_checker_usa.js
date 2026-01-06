@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.2.0
+ * 版本: v1.2.1
  * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
  */
 
@@ -13,7 +13,7 @@ const POLICY_GROUP_NAME = "美国手动";
  * 主函数
  */
 async function main() {
-    console.log(`🚀 Gemini检测器 v1.2.0 开始运行...`);
+    console.log(`🚀 Gemini检测器 v1.2.1 开始运行...`);
     try {
         // 获取策略组信息
         // $surge.selectGroupDetails() 返回包含所有策略组信息的对象
@@ -155,13 +155,21 @@ async function testNode(nodeName) {
     const startTime = Date.now();
 
     try {
-        const response = await $httpClient.get({
-            url: GEMINI_TEST_URL,
-            timeout: TIMEOUT / 1000,
-            policy: nodeName,
-            headers: {
-                "User-Agent": "Surge/5.0"
-            }
+        const response = await new Promise((resolve, reject) => {
+            $httpClient.get({
+                url: GEMINI_TEST_URL,
+                timeout: TIMEOUT / 1000,
+                policy: nodeName,
+                headers: {
+                    "User-Agent": "Surge/5.0"
+                }
+            }, (error, response, data) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(response);
+                }
+            });
         });
 
         const latency = Date.now() - startTime;
