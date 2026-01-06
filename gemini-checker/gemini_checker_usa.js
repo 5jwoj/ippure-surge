@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.2.1
+ * 版本: v1.2.2
  * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
  */
 
@@ -9,14 +9,18 @@ const TIMEOUT = 5000; // 5秒超时
 // 根据日志，实际包含具体节点列表的策略组名为 "美国手动"
 const POLICY_GROUP_NAME = "美国手动";
 
+// 全局变量用于控制Debug日志只打印一次
+if (typeof global !== 'undefined') {
+    global.debugLogged = false;
+}
+
 /**
  * 主函数
  */
 async function main() {
-    console.log(`🚀 Gemini检测器 v1.2.1 开始运行...`);
+    console.log(`🚀 Gemini检测器 v1.2.2 开始运行...`);
     try {
         // 获取策略组信息
-        // $surge.selectGroupDetails() 返回包含所有策略组信息的对象
         let allGroupDetails;
         try {
             allGroupDetails = $surge.selectGroupDetails();
@@ -31,7 +35,7 @@ async function main() {
         }
 
         if (!allGroupDetails || !allGroupDetails.groups) {
-            console.log("Debug: groups对象不存在 in " + JSON.stringify(allGroupDetails));
+            console.log("Debug: groups对象不存在");
             return {
                 title: "❌ 错误",
                 content: "API返回结构异常，未找到groups数据",
@@ -40,11 +44,10 @@ async function main() {
             };
         }
 
-        // 从 groups 对象中直接获取指定策略组的节点列表
         // 尝试直接匹配 "美国手动"
         let nodes = allGroupDetails.groups[POLICY_GROUP_NAME];
 
-        // 如果没找到，尝试模糊匹配 (比如带Emoji的情况)
+        // 模糊匹配
         if (!nodes) {
             console.log(`未找到精确匹配 "${POLICY_GROUP_NAME}"，尝试模糊匹配...`);
             const groupKeys = Object.keys(allGroupDetails.groups);
@@ -56,7 +59,6 @@ async function main() {
         }
 
         if (!nodes || nodes.length === 0) {
-            console.log(`Available groups: ${Object.keys(allGroupDetails.groups).join(", ")}`);
             return {
                 title: "⚠️ 策略组为空或未找到",
                 content: `无法在配置中找到 "${POLICY_GROUP_NAME}" 或其内容为空`,
@@ -106,8 +108,7 @@ function getPolicyNodes(nodeList) {
     const nodes = [];
 
     for (const item of nodeList) {
-        // 过滤掉"DIRECT"、"REJECT"等特殊策略以及策略组（通常自动生成或手动选择策略组）
-        // 你的日志里有 "✈️ 自动测速" 等，也应该过滤
+        // 过滤掉特殊策略
         if (item &&
             item !== "DIRECT" &&
             item !== "REJECT" &&
@@ -129,15 +130,12 @@ function getPolicyNodes(nodeList) {
 async function testAllNodes(nodes) {
     const results = [];
 
-    // 并行测试所有节点以加快速度（既然是检测器，并发通常没问题）
-    // 或者保持串行以避免瞬间高并发
-    // 这里保持串行因为之前的逻辑是串行
     for (const nodeName of nodes) {
         const result = await testNode(nodeName);
         results.push(result);
     }
 
-    // 按延时排序（可用的在前，不可用的在后）
+    // 按延时排序
     results.sort((a, b) => {
         if (a.available && !b.available) return -1;
         if (!a.available && b.available) return 1;
@@ -151,15 +149,25 @@ async function testAllNodes(nodes) {
 /**
  * 测试单个节点
  */
-async function testNode(nodeName) {
+async function testNode(rawNodeName) {
     const startTime = Date.now();
+
+    // 清理节点名称: 去除首尾空格，将 &nbsp; 替换为普通空格
+    const nodeName = rawNodeName.trim().replace(/\u00A0/g, ' ');
+
+    // 调试: 打印第一个节点的编码，检查是否有隐形字符
+    if (!global.debugLogged) {
+        console.log(`Debug Node Name: "${nodeName}"`);
+        console.log(`Debug Node Encode: ${encodeURIComponent(nodeName)}`);
+        global.debugLogged = true;
+    }
 
     try {
         const response = await new Promise((resolve, reject) => {
             $httpClient.get({
                 url: GEMINI_TEST_URL,
                 timeout: TIMEOUT / 1000,
-                policy: nodeName,
+                policy: nodeName, // 使用清理后的名称
                 headers: {
                     "User-Agent": "Surge/5.0"
                 }
@@ -176,7 +184,6 @@ async function testNode(nodeName) {
 
         // 检查响应状态
         if (response.status === 200 || response.status === 403) {
-            // 200表示成功，403可能是API key问题但连接正常
             console.log(`✓ ${nodeName}: ${latency}ms`);
             return {
                 node: nodeName,
@@ -215,7 +222,6 @@ function formatResults(results) {
 
     let content = "";
 
-    // 可用节点
     if (availableNodes.length > 0) {
         content += `✅ 可用节点 (${availableNodes.length}个):\n`;
         availableNodes.forEach((result, index) => {
@@ -224,14 +230,16 @@ function formatResults(results) {
         });
     }
 
-    // 不可用节点
     if (unavailableNodes.length > 0) {
         if (content) content += "\n";
         content += `❌ 不可用节点 (${unavailableNodes.length}个):\n`;
         unavailableNodes.slice(0, 5).forEach(result => {
             content += `▫️ ${result.node}\n`;
             if (result.error) {
-                content += `   错误: ${result.error.substring(0, 30)}\n`;
+                // 简化错误信息
+                let err = result.error;
+                if (err.includes("doesn't exist")) err = "策略不存在(命名问题?)";
+                content += `   错误: ${err.substring(0, 20)}\n`;
             }
         });
         if (unavailableNodes.length > 5) {
@@ -239,7 +247,6 @@ function formatResults(results) {
         }
     }
 
-    // 汇总信息
     const title = availableNodes.length > 0
         ? `✅ 最快: ${availableNodes[0].node} (${availableNodes[0].latency}ms)`
         : `❌ 无可用节点`;
