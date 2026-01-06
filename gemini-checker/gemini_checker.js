@@ -236,4 +236,3 @@ function formatResults(results) {
 
 // 执行主函数
 main().then($done);
-```
