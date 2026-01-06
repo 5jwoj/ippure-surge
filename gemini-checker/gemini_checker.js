@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.3.0
+ * 版本: v1.3.1 (调试版本)
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -50,34 +50,62 @@ async function main() {
 function getPolicyNodes() {
     try {
         const details = $surge.selectGroupDetails();
+
+        // 调试：打印所有可用的策略组名称
+        console.log("===== 调试信息 =====");
+        console.log("可用的策略组列表:");
+        const groupNames = Object.keys(details);
+        groupNames.forEach(name => {
+            console.log(`  - "${name}"`);
+        });
+        console.log(`目标策略组: "${POLICY_GROUP_NAME}"`);
+
+        // 检查目标策略组是否存在
+        if (!details[POLICY_GROUP_NAME]) {
+            console.log(`❌ 未找到策略组 "${POLICY_GROUP_NAME}"`);
+            console.log("可能的原因：策略组名称不匹配");
+            return [];
+        }
+
+        console.log(`✅ 找到策略组 "${POLICY_GROUP_NAME}"`);
+        console.log(`该策略组包含: ${JSON.stringify(details[POLICY_GROUP_NAME])}`);
+
         const allNodes = new Set(); // 使用Set避免重复节点
 
         // 递归函数：从策略组中提取所有实际节点
-        function extractNodes(groupName, visited = new Set()) {
+        function extractNodes(groupName, visited = new Set(), depth = 0) {
+            const indent = "  ".repeat(depth);
+
             // 避免循环引用
             if (visited.has(groupName)) {
+                console.log(`${indent}⚠️ 跳过已访问的策略组: ${groupName}`);
                 return;
             }
             visited.add(groupName);
 
             const group = details[groupName];
             if (!group) {
+                console.log(`${indent}⚠️ 策略组 "${groupName}" 不存在`);
                 return;
             }
+
+            console.log(`${indent}📂 处理策略组: ${groupName} (包含 ${group.length} 项)`);
 
             for (const item of group) {
                 // 跳过特殊策略
                 if (!item || item === "DIRECT" || item === "REJECT" || item === "PROXY") {
+                    console.log(`${indent}  ⊗ 跳过特殊策略: ${item}`);
                     continue;
                 }
 
                 // 检查是否是嵌套的策略组
                 if (details[item]) {
                     // 递归获取嵌套策略组中的节点
-                    console.log(`发现嵌套策略组: ${item}`);
-                    extractNodes(item, visited);
+                    console.log(`${indent}  📁 发现嵌套策略组: ${item}`);
+                    extractNodes(item, visited, depth + 1);
                 } else {
                     // 这是一个实际的节点
+                    console.log(`${indent}  ✓ 添加节点: ${item}`);
                     allNodes.add(item);
                 }
             }
@@ -87,11 +115,13 @@ function getPolicyNodes() {
         extractNodes(POLICY_GROUP_NAME);
 
         const nodeArray = Array.from(allNodes);
-        console.log(`共发现 ${nodeArray.length} 个节点`);
+        console.log(`\n最终结果: 共发现 ${nodeArray.length} 个节点`);
+        console.log("===== 调试结束 =====\n");
         return nodeArray;
 
     } catch (error) {
-        console.log(`获取策略组失败: ${error}`);
+        console.log(`❌ 获取策略组失败: ${error}`);
+        console.log(`错误堆栈: ${error.stack}`);
         return [];
     }
 }
