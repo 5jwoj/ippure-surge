@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.3.1 (调试版本)
+ * 版本: v1.4.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -50,25 +50,26 @@ async function main() {
 function getPolicyNodes() {
     try {
         const details = $surge.selectGroupDetails();
+        const groups = details.groups || {}; // 策略组数据在groups属性中
 
         // 调试：打印所有可用的策略组名称
         console.log("===== 调试信息 =====");
         console.log("可用的策略组列表:");
-        const groupNames = Object.keys(details);
+        const groupNames = Object.keys(groups);
         groupNames.forEach(name => {
             console.log(`  - "${name}"`);
         });
         console.log(`目标策略组: "${POLICY_GROUP_NAME}"`);
 
         // 检查目标策略组是否存在
-        if (!details[POLICY_GROUP_NAME]) {
+        if (!groups[POLICY_GROUP_NAME]) {
             console.log(`❌ 未找到策略组 "${POLICY_GROUP_NAME}"`);
             console.log("可能的原因：策略组名称不匹配");
             return [];
         }
 
         console.log(`✅ 找到策略组 "${POLICY_GROUP_NAME}"`);
-        console.log(`该策略组包含: ${JSON.stringify(details[POLICY_GROUP_NAME])}`);
+        console.log(`该策略组包含: ${JSON.stringify(groups[POLICY_GROUP_NAME])}`);
 
         const allNodes = new Set(); // 使用Set避免重复节点
 
@@ -83,7 +84,7 @@ function getPolicyNodes() {
             }
             visited.add(groupName);
 
-            const group = details[groupName];
+            const group = groups[groupName];
             if (!group) {
                 console.log(`${indent}⚠️ 策略组 "${groupName}" 不存在`);
                 return;
@@ -99,7 +100,7 @@ function getPolicyNodes() {
                 }
 
                 // 检查是否是嵌套的策略组
-                if (details[item]) {
+                if (groups[item]) {
                     // 递归获取嵌套策略组中的节点
                     console.log(`${indent}  📁 发现嵌套策略组: ${item}`);
                     extractNodes(item, visited, depth + 1);
