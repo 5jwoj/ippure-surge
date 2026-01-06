@@ -6,4 +6,4 @@
 gemini_checker = script-name=gemini_checker,update-interval=-1,title=Gemini节点检测
 
 [Script]
-gemini_checker = type=generic,timeout=60,script-path=gemini_checker.js,argument=Gemini
+gemini_checker = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/5jwoj/Surge/main/gemini-checker/gemini_checker.js,argument=Gemini
