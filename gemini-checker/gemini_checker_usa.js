@@ -1,7 +1,7 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.1.3
- * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
+ * 版本: v1.1.9
+ * 功能: 检测"美国节点"策略组中哪些节点可以访问Gemini API
  */
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
@@ -12,6 +12,7 @@ const POLICY_GROUP_NAME = "美国节点";
  * 主函数
  */
 async function main() {
+    console.log("🚀 Gemini检测器 v1.1.9 开始运行...");
     try {
         // 获取策略组信息
         // 使用 $surge.selectGroupDetails 获取策略组详情
