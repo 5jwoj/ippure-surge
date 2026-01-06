@@ -1,6 +1,6 @@
 /**
  * Gemini节点检测器
- * 版本: v1.1.0
+ * 版本: v1.2.0
  * 功能: 检测指定策略组中哪些节点可以访问Gemini API，并按延时排序
  */
 
@@ -13,25 +13,13 @@ const POLICY_GROUP_NAME = $argument || "谷歌服务"; // 从参数获取策略�
  */
 async function main() {
     try {
-        // 获取策略组信息
-        const policyGroup = $surge.policy(POLICY_GROUP_NAME);
-
-        if (!policyGroup) {
-            return {
-                title: "❌ 错误",
-                content: `策略组"${POLICY_GROUP_NAME}"不存在`,
-                icon: "xmark.circle.fill",
-                "icon-color": "#FF3B30"
-            };
-        }
-
         // 获取策略组中的所有节点
-        const nodes = getPolicyNodes(policyGroup);
+        const nodes = getPolicyNodes();
 
         if (nodes.length === 0) {
             return {
                 title: "⚠️ 策略组为空",
-                content: `"${POLICY_GROUP_NAME}"中没有可用节点`,
+                content: `"${POLICY_GROUP_NAME}"中没有可用节点或策略组不存在`,
                 icon: "exclamationmark.triangle.fill",
                 "icon-color": "#FF9500"
             };
@@ -59,22 +47,32 @@ async function main() {
 /**
  * 获取策略组中的所有代理节点
  */
-function getPolicyNodes(policyGroup) {
-    const nodes = [];
-    const groupInfo = policyGroup.content || [];
+function getPolicyNodes() {
+    try {
+        const details = $surge.selectGroupDetails();
+        const policyGroup = details[POLICY_GROUP_NAME];
 
-    for (const item of groupInfo) {
-        // 过滤掉"DIRECT"、"REJECT"等特殊策略
-        if (item &&
-            item !== "DIRECT" &&
-            item !== "REJECT" &&
-            item !== "PROXY" &&
-            !item.startsWith("🎯")) {
-            nodes.push(item);
+        if (!policyGroup) {
+            return [];
         }
-    }
 
-    return nodes;
+        const nodes = [];
+        // Get all nodes from the policy group
+        for (const node of policyGroup) {
+            // Filter out special policies
+            if (node &&
+                node !== "DIRECT" &&
+                node !== "REJECT" &&
+                node !== "PROXY" &&
+                !node.startsWith("🎯")) {
+                nodes.push(node);
+            }
+        }
+        return nodes;
+    } catch (error) {
+        console.log(`获取策略组失败: ${error}`);
+        return [];
+    }
 }
 
 /**
