@@ -1,9 +1,9 @@
 #!name=Gemini节点检测器
-#!desc=检测Gemini策略组中可用的节点并按延时排序 v1.0.0
+#!desc=检测Gemini策略组中可用的节点并按延时排序 v1.1.1
 #!system=ios,mac
 
 [Panel]
 gemini_checker = script-name=gemini_checker,update-interval=-1,title=Gemini节点检测
 
 [Script]
-gemini_checker = type=generic,timeout=60,script-path=gemini_checker.js,argument=Gemini
+gemini_checker = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/5jwoj/Surge/main/gemini-checker/gemini_checker.js,argument=Gemini
