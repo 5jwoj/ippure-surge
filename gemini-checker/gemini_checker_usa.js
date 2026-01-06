@@ -16,11 +16,22 @@ async function main() {
         // 获取策略组信息
         // 使用 $surge.selectGroupDetails 获取策略组详情
         // 注意: 这需要由 Surge 这里的 API 支持
-        let policyGroup;
         try {
             policyGroup = $surge.selectGroupDetails(POLICY_GROUP_NAME);
         } catch (e) {
-            // 忽略错误，下面判断 policyGroup
+            console.log("selectGroupDetails error: " + e);
+        }
+
+        console.log("获取到的组信息类型: " + (typeof policyGroup));
+        if (policyGroup) {
+            console.log("组信息Keys: " + Object.keys(policyGroup).join(","));
+            if (policyGroup.options) {
+                console.log(`options长度: ${policyGroup.options.length}`);
+            } else {
+                console.log("options字段不存在!");
+                // 尝试打印整个对象（如果不太大）
+                console.log("Group dump: " + JSON.stringify(policyGroup));
+            }
         }
 
         if (!policyGroup) {
