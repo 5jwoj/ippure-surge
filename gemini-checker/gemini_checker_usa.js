@@ -1,12 +1,13 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.3.0
+ * 版本: v1.3.1
  * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
- * 修复: 使用策略组切换方式来测试节点，解决无法直接引用订阅节点的问题
+ * 修复: 使用策略组切换方式来测试节点; 增加API Body解析以准确判断地区支持性
  */
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
 const TIMEOUT = 5000; // 5秒超时
+// 根据之前的日志，虽然界面显示 "美国节点"，但 Surge 内部使用的策略组名称是 "美国手动"
 const POLICY_GROUP_NAME = "美国手动";
 
 // 模块级变量控制日志
@@ -16,7 +17,7 @@ let isDebugLogged = false;
  * 主函数
  */
 async function main() {
-    console.log(`🚀 Gemini检测器 v1.3.0 (切换测试模式) 开始运行...`);
+    console.log(`🚀 Gemini检测器 v1.3.1 (深度检测模式) 开始运行...`);
 
     let allGroupDetails;
     try {
@@ -41,7 +42,13 @@ async function main() {
 
     // 获取节点列表
     let nodes = allGroupDetails.groups[POLICY_GROUP_NAME];
-    /* 省略模糊匹配逻辑，既然日志确认必须精确匹配 */
+
+    if (!nodes && allGroupDetails.groups) {
+        // 二次尝试：模糊匹配
+        const keys = Object.keys(allGroupDetails.groups);
+        const match = keys.find(k => k.includes(POLICY_GROUP_NAME));
+        if (match) nodes = allGroupDetails.groups[match];
+    }
 
     if (!nodes || nodes.length === 0) {
         return {
@@ -59,9 +66,8 @@ async function main() {
     }
 
     // 获取当前选中的节点，以便最后恢复
-    // 注意: 如果策略组是 url-test 等类型，decisions 里可能没有它，我们也无法切换
+    // 注意: 如果策略组是 url-test 等类型，decisions 里可能没有它
     const currentPolicy = allGroupDetails.decisions[POLICY_GROUP_NAME];
-    console.log(`当前策略组指向: ${currentPolicy || "未知(或非Select组)"}`);
 
     console.log(`开始轮询检测 ${validNodes.length} 个节点...`);
 
@@ -74,29 +80,18 @@ async function main() {
         // 尝试切换策略组到该节点
         const switchSuccess = $surge.setSelectGroupPolicy(POLICY_GROUP_NAME, cleanName);
 
-        if (!switchSuccess) {
-            // 如果切换失败（比如不是Select组），则尝试直接测试（虽然之前失败了由于Direct referencing）
-            // 但如果这里失败，基本说明该组不支持手动切换
-            if (!isDebugLogged) {
-                console.log(`⚠️ 无法切换策略组 "${POLICY_GROUP_NAME}"。请确认它是"手动选择"类型的策略组。`);
-                isDebugLogged = true;
-            }
-        }
-
         // 给一点时间让切换生效
         await delay(50);
 
-        // 测试策略组本身 (因为策略组现在指向了该节点)
-        // 如果切换失败，我们还是尝试直接测 cleanName，万一它是全局节点呢
+        // 如果切换成功，测试策略组本身；否则尝试直接测节点（虽然可能失败）
         const targetPolicy = switchSuccess ? POLICY_GROUP_NAME : cleanName;
 
-        const result = await testNode(targetPolicy, cleanName); // 传入 实际策略名 和 显示用的节点名
+        const result = await testNode(targetPolicy, cleanName);
         results.push(result);
     }
 
     // 恢复原来的选择
     if (currentPolicy) {
-        console.log(`正在恢复策略组选择: ${currentPolicy}`);
         $surge.setSelectGroupPolicy(POLICY_GROUP_NAME, currentPolicy);
     }
 
@@ -128,7 +123,8 @@ function getPolicyNodes(nodeList) {
 async function testNode(policyToTest, displayNodeName) {
     const startTime = Date.now();
     try {
-        const response = await new Promise((resolve, reject) => {
+        // 请求 API
+        const responseData = await new Promise((resolve, reject) => {
             $httpClient.get({
                 url: GEMINI_TEST_URL,
                 timeout: TIMEOUT / 1000,
@@ -136,18 +132,57 @@ async function testNode(policyToTest, displayNodeName) {
                 headers: { "User-Agent": "Surge/5.0" }
             }, (error, response, data) => {
                 if (error) reject(error);
-                else resolve(response);
+                else resolve({ response, data });
             });
         });
 
         const latency = Date.now() - startTime;
-        if (response.status === 200 || response.status === 403) {
-            console.log(`✓ ${displayNodeName}: ${latency}ms`);
-            return { node: displayNodeName, available: true, latency: latency, status: response.status };
-        } else {
-            console.log(`✗ ${displayNodeName}: HTTP ${response.status}`);
-            return { node: displayNodeName, available: false, latency: latency, error: `HTTP ${response.status}` };
+        const response = responseData.response;
+        const data = responseData.data;
+
+        // 判定逻辑
+
+        // 1. 如果状态码是 200，绝对可用
+        if (response.status === 200) {
+            console.log(`✓ ${displayNodeName}: ${latency}ms (200 OK)`);
+            return { node: displayNodeName, available: true, latency: latency, status: 200 };
         }
+
+        // 2. 如果是 4xx/5xx，需要检查 Body 确认原因
+        // 如果 Body 里包含 "User location is not supported"，则为不可用
+        if (data && typeof data === 'string') {
+            if (data.includes("User location is not supported")) {
+                console.log(`✗ ${displayNodeName}: 地区不支持 (${latency}ms)`);
+                return {
+                    node: displayNodeName,
+                    available: false,
+                    latency: latency,
+                    error: "地区不支持"
+                };
+            }
+            // 如果包含 Key 错误，说明网络通畅且地区支持
+            if (data.includes("missing a valid API key") || data.includes("API key not valid")) {
+                console.log(`✓ ${displayNodeName}: ${latency}ms (可用-缺少Key)`);
+                return {
+                    node: displayNodeName,
+                    available: true,
+                    latency: latency,
+                    status: response.status
+                };
+            }
+        }
+
+        // 3. 其他非明确拒绝的情况，默认视为连通 (因为我们访问的是需要Key的端点，拒绝访问是正常的)
+        // 只要不是 地区不支持，我们通常认为它是通的
+        if (response.status === 403 || response.status === 400 || response.status === 404) {
+            console.log(`✓ ${displayNodeName}: ${latency}ms (API响应:${response.status})`);
+            return { node: displayNodeName, available: true, latency: latency, status: response.status };
+        }
+
+        // 其他错误 (50x 等)
+        console.log(`✗ ${displayNodeName}: HTTP ${response.status}`);
+        return { node: displayNodeName, available: false, latency: latency, error: `HTTP ${response.status}` };
+
     } catch (error) {
         const latency = Date.now() - startTime;
         // 简化日志
@@ -179,6 +214,7 @@ function formatResults(results) {
         content += `❌ 不可用节点 (${unavailableNodes.length}个):\n`;
         unavailableNodes.slice(0, 5).forEach(result => {
             content += `▫️ ${result.node}\n`;
+            if (result.error) content += `   原因: ${result.error}\n`;
         });
         if (unavailableNodes.length > 5) {
             content += `... 还有 ${unavailableNodes.length - 5} 个不可用节点\n`;
