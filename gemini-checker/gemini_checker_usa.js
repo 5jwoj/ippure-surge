@@ -1,66 +1,88 @@
 /**
  * Gemini节点检测器(美国策略组专用)
- * 版本: v1.1.9
- * 功能: 检测"美国节点"策略组中哪些节点可以访问Gemini API
+ * 版本: v1.2.0
+ * 功能: 检测"美国手动"策略组中哪些节点可以访问Gemini API
  */
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
 const TIMEOUT = 5000; // 5秒超时
-const POLICY_GROUP_NAME = "美国节点";
+// 根据日志，实际包含具体节点列表的策略组名为 "美国手动"
+const POLICY_GROUP_NAME = "美国手动";
 
 /**
  * 主函数
  */
 async function main() {
-    console.log("🚀 Gemini检测器 v1.1.9 开始运行...");
+    console.log(`🚀 Gemini检测器 v1.2.0 开始运行...`);
     try {
         // 获取策略组信息
-        // 使用 $surge.selectGroupDetails 获取策略组详情
-        // 注意: 这需要由 Surge 这里的 API 支持
+        // $surge.selectGroupDetails() 返回包含所有策略组信息的对象
+        let allGroupDetails;
         try {
-            policyGroup = $surge.selectGroupDetails(POLICY_GROUP_NAME);
+            allGroupDetails = $surge.selectGroupDetails();
         } catch (e) {
             console.log("selectGroupDetails error: " + e);
-        }
-
-        console.log("获取到的组信息类型: " + (typeof policyGroup));
-        if (policyGroup) {
-            console.log("组信息Keys: " + Object.keys(policyGroup).join(","));
-            if (policyGroup.options) {
-                console.log(`options长度: ${policyGroup.options.length}`);
-            } else {
-                console.log("options字段不存在!");
-                // 尝试打印整个对象（如果不太大）
-                console.log("Group dump: " + JSON.stringify(policyGroup));
-            }
-        }
-
-        if (!policyGroup) {
             return {
-                title: "❌ 错误",
-                content: `策略组"${POLICY_GROUP_NAME}"不存在或无法访问`,
+                title: "❌ API 错误",
+                content: "无法获取策略组信息: " + e,
                 icon: "xmark.circle.fill",
                 "icon-color": "#FF3B30"
             };
         }
 
-        // 获取策略组中的所有节点
-        // selectGroupDetails 返回对象包含 options 数组
-        const nodes = getPolicyNodes(policyGroup);
-
-        if (nodes.length === 0) {
+        if (!allGroupDetails || !allGroupDetails.groups) {
+            console.log("Debug: groups对象不存在 in " + JSON.stringify(allGroupDetails));
             return {
-                title: "⚠️ 策略组为空",
-                content: `"${POLICY_GROUP_NAME}"中没有可用节点`,
+                title: "❌ 错误",
+                content: "API返回结构异常，未找到groups数据",
+                icon: "xmark.circle.fill",
+                "icon-color": "#FF3B30"
+            };
+        }
+
+        // 从 groups 对象中直接获取指定策略组的节点列表
+        // 尝试直接匹配 "美国手动"
+        let nodes = allGroupDetails.groups[POLICY_GROUP_NAME];
+
+        // 如果没找到，尝试模糊匹配 (比如带Emoji的情况)
+        if (!nodes) {
+            console.log(`未找到精确匹配 "${POLICY_GROUP_NAME}"，尝试模糊匹配...`);
+            const groupKeys = Object.keys(allGroupDetails.groups);
+            const matchKey = groupKeys.find(k => k.includes(POLICY_GROUP_NAME) || k.includes("美国节点"));
+            if (matchKey) {
+                console.log(`找到模糊匹配: ${matchKey}`);
+                nodes = allGroupDetails.groups[matchKey];
+            }
+        }
+
+        if (!nodes || nodes.length === 0) {
+            console.log(`Available groups: ${Object.keys(allGroupDetails.groups).join(", ")}`);
+            return {
+                title: "⚠️ 策略组为空或未找到",
+                content: `无法在配置中找到 "${POLICY_GROUP_NAME}" 或其内容为空`,
                 icon: "exclamationmark.triangle.fill",
                 "icon-color": "#FF9500"
             };
         }
 
-        console.log(`开始检测${nodes.length}个节点...`);
+        console.log(`找到策略组，包含Raw节点 ${nodes.length} 个`);
+
+        // 过滤节点
+        const validNodes = getPolicyNodes(nodes);
+
+        if (validNodes.length === 0) {
+            return {
+                title: "⚠️ 无有效节点",
+                content: "策略组中没有符合条件的节点",
+                icon: "exclamationmark.triangle.fill",
+                "icon-color": "#FF9500"
+            };
+        }
+
+        console.log(`过滤后开始检测 ${validNodes.length} 个节点...`);
 
         // 检测所有节点
-        const results = await testAllNodes(nodes);
+        const results = await testAllNodes(validNodes);
 
         // 格式化并返回结果
         return formatResults(results);
@@ -78,20 +100,21 @@ async function main() {
 
 /**
  * 获取策略组中的所有代理节点
+ * @param {Array} nodeList - 节点名称数组
  */
-/**
- * 获取策略组中的所有代理节点
- */
-function getPolicyNodes(policyGroup) {
+function getPolicyNodes(nodeList) {
     const nodes = [];
-    const groupInfo = policyGroup.options || [];
 
-    for (const item of groupInfo) {
-        // 过滤掉"DIRECT"、"REJECT"等特殊策略
+    for (const item of nodeList) {
+        // 过滤掉"DIRECT"、"REJECT"等特殊策略以及策略组（通常自动生成或手动选择策略组）
+        // 你的日志里有 "✈️ 自动测速" 等，也应该过滤
         if (item &&
             item !== "DIRECT" &&
             item !== "REJECT" &&
             item !== "PROXY" &&
+            !item.includes("自动选择") &&
+            !item.includes("节点选择") &&
+            !item.includes("自动测速") &&
             !item.startsWith("🎯")) {
             nodes.push(item);
         }
@@ -106,6 +129,9 @@ function getPolicyNodes(policyGroup) {
 async function testAllNodes(nodes) {
     const results = [];
 
+    // 并行测试所有节点以加快速度（既然是检测器，并发通常没问题）
+    // 或者保持串行以避免瞬间高并发
+    // 这里保持串行因为之前的逻辑是串行
     for (const nodeName of nodes) {
         const result = await testNode(nodeName);
         results.push(result);
