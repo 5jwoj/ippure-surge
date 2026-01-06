@@ -6,7 +6,7 @@
 
 const GEMINI_TEST_URL = "https://generativelanguage.googleapis.com/v1/models";
 const TIMEOUT = 5000; // 5秒超时
-const POLICY_GROUP_NAME = $argument || "Gemini"; // 从参数获取策略组名，默认为Gemini
+const POLICY_GROUP_NAME = $argument ? decodeURIComponent($argument) : "Gemini"; // 从参数获取策略组名，支持URL编码
 
 /**
  * 主函数
